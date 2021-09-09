@@ -6,6 +6,21 @@ import matplotlib.image as mpimg
 import glob
 import pickle
 
+'''
+Make a strategy
+
+1. Identify the lane's with the window-method
+2. Identify the lane with the polynomial fit and search around
+3. Tricky
+
+functions so far:
+def fit_poly(img_shape, leftx, lefty, rightx, righty)
+def search_around_poly(binary_warped)
+
+
+sear
+'''
+
 # Chessboard (9x5) camera_cal/calibration[1..20].jpg
 '''
 nx = 9
@@ -136,12 +151,10 @@ def search_around_poly(binary_warped):
     # Generate a polygon to illustrate the search window area
     # And recast the x and y points into usable format for cv2.fillPoly()
     left_line_window1 = np.array([np.transpose(np.vstack([left_fitx-margin, ploty]))])
-    left_line_window2 = np.array([np.flipud(np.transpose(np.vstack([left_fitx+margin, 
-                              ploty])))])
+    left_line_window2 = np.array([np.flipud(np.transpose(np.vstack([left_fitx+margin, ploty])))])
     left_line_pts = np.hstack((left_line_window1, left_line_window2))
     right_line_window1 = np.array([np.transpose(np.vstack([right_fitx-margin, ploty]))])
-    right_line_window2 = np.array([np.flipud(np.transpose(np.vstack([right_fitx+margin, 
-                              ploty])))])
+    right_line_window2 = np.array([np.flipud(np.transpose(np.vstack([right_fitx+margin, ploty])))])
     right_line_pts = np.hstack((right_line_window1, right_line_window2))
 
     # Draw the lane onto the warped blank image
@@ -161,5 +174,6 @@ def search_around_poly(binary_warped):
 result = search_around_poly(binary_warped)
 
 # View your output
+plt.figure(1)
 plt.imshow(result)
 plt.show()
