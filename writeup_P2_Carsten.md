@@ -4,14 +4,14 @@
 
 The goals / steps of this project are the following:
 
-* Compute the camera calibration matrix and distortion coefficients given a set of chessboard images.
-* Apply a distortion correction to raw images.
-* Use color transforms, gradients, etc., to create a thresholded binary image.
-* Apply a perspective transform to rectify binary image ("birds-eye view").
-* Detect lane pixels and fit to find the lane boundary.
-* Determine the curvature of the lane and vehicle position with respect to center.
-* Warp the detected lane boundaries back onto the original image.
-* Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
+- [x] Compute the camera calibration matrix and distortion coefficients given a set of chessboard images.
+- [x] Apply a distortion correction to raw images.
+- [x] Use color transforms, gradients, etc., to create a thresholded binary image.
+- [x] Apply a perspective transform to rectify binary image ("birds-eye view").
+- [x] Detect lane pixels and fit to find the lane boundary.
+- [x] Determine the curvature of the lane and vehicle position with respect to center.
+- [x] Warp the detected lane boundaries back onto the original image.
+- [x] Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
 
 [//]: # (Image References)
 
@@ -28,7 +28,13 @@ The goals / steps of this project are the following:
 ### Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
 
 ---
+Here I test the setting of two pictures
+<table><tr>
+<td> <img src="./output_images/test1.jpg" alt="Drawing" style="width: 390px;"/> </td>
+<td> <img src="./output_images/combined_binary_1.jpg" alt="Drawing" style="width: 390px;"/> </td>
+</tr></table>
 
+---
 ### Writeup / README
 
 #### 1. Provide a Writeup / README that includes all the rubric points and how you addressed each one.  You can submit your writeup as markdown or pdf.  [Here](https://github.com/udacity/CarND-Advanced-Lane-Lines/blob/master/writeup_template.md) is a template writeup for this project you can use as a guide and a starting point.  
