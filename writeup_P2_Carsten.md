@@ -16,12 +16,12 @@ The goals / steps of this project are the following:
 [//]: # (Image References)
 
 [image1]: ./output_images/undistort_calibration1.jpg "Undistorted"
-[image2]: ./test_images/test1.jpg "Road Transformed"
-[image3]: ./examples/binary_combo_example.jpg "Binary Example"
+[image2]: ./output_images/test1.jpg "Road Transformed"
+[image3]: ./output_images/combined_binary_1.jpg "Binary Example"
 [image4]: ./output_images/warping.jpg "Warp Example"
-[image5]: ./examples/color_fit_lines.jpg "Fit Visual"
-[image6]: ./examples/example_output.jpg "Output"
-[video1]: ./project_video.mp4 "Video"
+[image5]: ./output_images/polynomial_fit.jpg "Fit Visual"
+[image6]: ./output_images/tracked1.jpg "Output"
+[video1]: ./output1_tracked.mp4 "Video"
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/571/view) Points
 
