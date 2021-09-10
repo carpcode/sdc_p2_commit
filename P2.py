@@ -52,6 +52,11 @@ dst_line = [[200,0],
 
 dst = np.float32(dst_line)
 
+# Define conversions in x and y from pixels space to meters
+# tbd.align with transformation src_dist values
+ym_per_pix = 30/720 # meters per pixel in y dimension
+xm_per_pix = 3.7/700 # meters per pixel in x dimension
+
 # Helper Functions
 
 def calibrate_camera(img_in, objpoints, imgpoints):
@@ -107,7 +112,7 @@ def find_lane_pixels(binary_warped):
     # Take a histogram of the bottom half of the image
     histogram = np.sum(binary_warped[binary_warped.shape[0]//2:,:], axis=0)
     # Create an output image to draw on and visualize the result
-    out_img = np.dstack((binary_warped, binary_warped, binary_warped))
+    dbg_lane_px_img = np.dstack((binary_warped, binary_warped, binary_warped))
     # Find the peak of the left and right halves of the histogram
     # These will be the starting point for the left and right lines
     midpoint = np.int(histogram.shape[0]//2)
@@ -147,9 +152,9 @@ def find_lane_pixels(binary_warped):
         win_xright_high = rightx_current + margin
         
         # Draw the windows on the visualization image
-        cv2.rectangle(out_img,(win_xleft_low,win_y_low),
+        cv2.rectangle(dbg_lane_px_img,(win_xleft_low,win_y_low),
         (win_xleft_high,win_y_high),(0,255,0), 2) 
-        cv2.rectangle(out_img,(win_xright_low,win_y_low),
+        cv2.rectangle(dbg_lane_px_img,(win_xright_low,win_y_low),
         (win_xright_high,win_y_high),(0,255,0), 2) 
         
         # Identify the nonzero pixels in x and y within the window #
@@ -182,37 +187,79 @@ def find_lane_pixels(binary_warped):
     rightx = nonzerox[right_lane_inds]
     righty = nonzeroy[right_lane_inds]
 
-    return leftx, lefty, rightx, righty, out_img
+    # Colors in the left and right lane regions
+    dbg_lane_px_img[lefty, leftx] = [255, 0, 0]
+    dbg_lane_px_img[righty, rightx] = [0, 0, 255]
 
-def fit_polynomial(binary_warped):
+    return leftx, lefty, rightx, righty, dbg_lane_px_img
+
+def fit_poly_pipeline(binary_warped):
     # Find our lane pixels first
-    leftx, lefty, rightx, righty, out_img = find_lane_pixels(binary_warped)
+    left_x_pxs, left_y_pxs, right_x_pxs, right_y_pxs, dbg_lane_px_img = find_lane_pixels(binary_warped)
 
     # Fit a second order polynomial to each using `np.polyfit`
-    left_fit = np.polyfit(lefty, leftx, 2)
-    right_fit = np.polyfit(righty, rightx, 2)
+    left_poly_pars = np.polyfit(left_y_pxs, left_x_pxs, 2)
+    right_poly_pars = np.polyfit(right_y_pxs, right_x_pxs, 2)
 
     # Generate x and y values for plotting
     ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
     try:
-        left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
-        right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
+        left_fitx = left_poly_pars[0]*ploty**2 + left_poly_pars[1]*ploty + left_poly_pars[2]
+        right_fitx = right_poly_pars[0]*ploty**2 + right_poly_pars[1]*ploty + right_poly_pars[2]
     except TypeError:
         # Avoids an error if `left` and `right_fit` are still none or incorrect
         print('The function failed to fit a line!')
         left_fitx = 1*ploty**2 + 1*ploty
         right_fitx = 1*ploty**2 + 1*ploty
 
-    ## Visualization ##
-    # Colors in the left and right lane regions
-    out_img[lefty, leftx] = [255, 0, 0]
-    out_img[righty, rightx] = [0, 0, 255]
+    return left_fitx, right_fitx, ploty, dbg_lane_px_img
 
-    # Plots the left and right polynomials on the lane lines
-    plt.plot(left_fitx, ploty, color='yellow')
-    plt.plot(right_fitx, ploty, color='yellow')
+def color_img(window_img,left_fitx, right_fitx, ploty):
 
-    return out_img
+    # tbd align with search area?
+    margin = 30
+
+    #Color the left-lane in red
+    left_line_window1 = np.array([np.transpose(np.vstack([left_fitx-margin, ploty]))])
+    left_line_window2 = np.array([np.flipud(np.transpose(np.vstack([left_fitx+margin, ploty])))])
+    left_line_pts = np.hstack((left_line_window1, left_line_window2))
+
+    # Color the right-lane in blue 
+    right_line_window1 = np.array([np.transpose(np.vstack([right_fitx-margin, ploty]))])
+    right_line_window2 = np.array([np.flipud(np.transpose(np.vstack([right_fitx+margin, ploty])))])
+    right_line_pts = np.hstack((right_line_window1, right_line_window2))
+
+    # Draw the lane onto the warped blank image
+    cv2.fillPoly(window_img, np.int_([left_line_pts]), (255,0, 0))
+    cv2.fillPoly(window_img, np.int_([right_line_pts]), (0,0, 255))
+
+    # Color the surface in green
+    window1 = np.array([np.transpose(np.vstack([left_fitx, ploty]))])
+    window2 = np.array([np.flipud(np.transpose(np.vstack([right_fitx, ploty])))])
+    road_surface = np.hstack((window1, window2))
+    cv2.fillPoly(window_img, np.int_([road_surface]), (0, 255, 0))
+
+    color_layer = window_img
+
+    return color_layer
+
+def measure_curvature_real(left_fitx, right_fitx, ploty, ym_per_pix, xm_per_pix):
+    '''
+    Calculates the curvature of polynomial functions in meters.
+    '''
+    
+    left_fit_cr = np.polyfit(ploty*ym_per_pix, left_fitx*xm_per_pix, 2)
+    right_fit_cr = np.polyfit(ploty*ym_per_pix, right_fitx*xm_per_pix, 2)
+    
+    # Define y-value where we want radius of curvature
+    # We'll choose the maximum y-value, corresponding to the bottom of the image
+    y_eval = np.max(ploty)
+    
+    ##### TO-DO: Implement the calculation of R_curve (radius of curvature) #####
+    left_curverad = ((1+(2*left_fit_cr[0]*y_eval*ym_per_pix + left_fit_cr[1])**2)**(3/2))/(abs(2*left_fit_cr[0]))  ## Implement the calculation of the left line here
+    right_curverad = ((1+(2*right_fit_cr[0]*y_eval*ym_per_pix + right_fit_cr[1])**2)**(3/2))/(abs(2*right_fit_cr[0]))  ## Implement the calculation of the right line here
+    
+    return left_curverad, right_curverad
 
 def put_text(img_in,left_curverad,center_diff,side_pos):
 
@@ -235,9 +282,26 @@ def process_image(img_in):
 
     M, M_inv, warped_binary = warp_the_image(combined_binary,src,dst)
 
-    wapred_polyfit = fit_polynomial(warped_binary)
-    
-    result = put_text(wapred_polyfit,300.4789,0.1789230,'left')
+    left_fitx, right_fitx, ploty, dbg_lane_px_img = fit_poly_pipeline(warped_binary)
+
+    window_img = np.zeros_like(undist_img)
+
+    color_layer = color_img(window_img,left_fitx, right_fitx, ploty)
+
+    unwarped_color_layer = cv2.warpPerspective(color_layer, M_inv, (color_layer.shape[1],color_layer.shape[0]), flags=cv2.INTER_LINEAR)
+
+    colored_undist = cv2.addWeighted(undist_img, 1, unwarped_color_layer, 0.3, 0)
+
+    left_curverad, right_curverad = measure_curvature_real(left_fitx, right_fitx, ploty, ym_per_pix, xm_per_pix)
+
+    # Measure center position
+    camera_center = (left_fitx[-1] + right_fitx[-1])/2
+    center_diff = (camera_center - colored_undist.shape[1]/2)*xm_per_pix
+    side_pos = 'left'
+    if center_diff <= 0:
+        side_pos = 'right'
+
+    result = put_text(colored_undist, left_curverad,center_diff, side_pos)
 
     return result
 
@@ -245,7 +309,7 @@ def process_image(img_in):
 # Core-Computation for /test_images
 
 # Tst on images
-if(1):
+if(0):
     images = glob.glob('./test_images/test*.jpg')
 
     for idx, fname in enumerate(images):
@@ -255,9 +319,14 @@ if(1):
         cv2.imwrite(write_name,img)
 
 # Test on videos
-if(0):
-    Output_video = 'output1_tracked.mp4'
-    Input_video = 'project_video.mp4'
+if(1):
+    if(1):
+        Output_video = 'output1_tracked.mp4'
+        Input_video = 'project_video.mp4'
+    if(0):
+        Output_video = 'output_hard_tracked.mp4'
+        Input_video = 'harder_challenge_video.mp4'
+    
     ## To speed up the testing process you may want to try your pipeline on a shorter subclip of the video
     ## To do so add .subclip(start_second,end_second) to the end of the line below
     ## Where start_second and end_second are integer values representing the start and end of the subclip
