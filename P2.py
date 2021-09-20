@@ -425,7 +425,7 @@ def process_image(img_in):
 # Core-Computation for /test_images
 
 # Tst on images
-if(0):
+if(1):
     images = sorted(glob.glob('./test_images/test*.jpg'))
 
     for idx, fname in enumerate(images):
@@ -450,7 +450,7 @@ if(0):
 
 
 # Test on videos
-if(1):
+if(0):
     if(1):
         Output_video = 'output1_tracked.mp4'
         Input_video = 'project_video.mp4'
