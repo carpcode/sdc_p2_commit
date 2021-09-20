@@ -201,13 +201,15 @@ The image processing pipeline that was established to find the lane lines in ima
 You need little improvement here as the algorithm unable to detect lane properly when brightness changes.
 
 **Answer**
-I implemented the file `Color_Test.py` to have a closer looke at using not only the S-Channel, but also incorporate L-Channel.
+I implemented the file `Color_Test.py` to have a closer look at using not only the S-Channel, but also incorporate L-Channel.
 
 Output is:
 ![Ouput Color Test](./test_images/color_test.jpg)
 
 Red: L-Channel
+
 Green: Gradient
+
 Blue: S-Channel
 
 This shows that the L-Channel introduces more disturbtion and therefore I decided to keep the original implementation in `P2.py`
