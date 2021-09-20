@@ -75,7 +75,7 @@ plt.savefig('output_images/undistort_test3.jpg')
 I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines #69 through #99 in `P2.py`).  Here's an example of my output for this step, applied to `test1.jpg`.
 
 <table><tr>
-<td> <img src="./output_images/test1.jpg" alt="Drawing" style="width: 390px;"/> </td>
+<td> <img src="./output_images/test01.jpg" alt="Drawing" style="width: 390px;"/> </td>
 <td> <img src="./output_images/combined_binary_1.jpg" alt="Drawing" style="width: 390px;"/> </td>
 </tr></table>
 
