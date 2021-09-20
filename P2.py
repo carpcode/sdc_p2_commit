@@ -443,9 +443,12 @@ if(1):
     right_poly_pars_input = np.concatenate(right_poly_pars_input[1:])
     right_poly_pars_input = right_poly_pars_input.reshape(len(images),3)
     plt.figure(1)
-    plt.plot(left_poly_pars_input[:,2],'r')
-    plt.plot(right_poly_pars_input[:,2],'b')
+    plt.plot(left_poly_pars_input[:,2],'r', label='left poly offset')
+    plt.plot(right_poly_pars_input[:,2],'b', label='right poly offset')
+    plt.legend()
+    plt.savefig('./test_images/poly_offset.jpg')
     plt.show()
+    
 
 
 
