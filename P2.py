@@ -9,10 +9,10 @@ The goals / steps of this project are the following:
     [x] Apply a distortion correction to raw images.
     [x] Use color transforms, gradients, etc., to create a thresholded binary image.
     [x] Apply a perspective transform to rectify binary image ("birds-eye view").
-    [] Detect lane pixels and fit to find the lane boundary.
-    [] Determine the curvature of the lane and vehicle position with respect to center.
-    [] Warp the detected lane boundaries back onto the original image.
-    [] Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
+    [x] Detect lane pixels and fit to find the lane boundary.
+    [x] Determine the curvature of the lane and vehicle position with respect to center.
+    [x] Warp the detected lane boundaries back onto the original image.
+    [x] Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
 
 
 '''
@@ -56,6 +56,14 @@ dst = np.float32(dst_line)
 # tbd.align with transformation src_dist values
 ym_per_pix = 30/720 # meters per pixel in y dimension
 xm_per_pix = 3.7/700 # meters per pixel in x dimension
+
+# Collect the poly-parameters in an array for debugging and averaging
+#left_poly_pars_input = []
+#right_poly_pars_input = []
+
+# initialize
+left_poly_pars_input = [(np.array([ 1.49748530e-04, -1.91077116e-01, 2.86972449e+02]))]
+right_poly_pars_input = [(np.array([ 2.34196538e-04, -2.83680908e-01, 1.14127311e+03]))]
 
 # Helper Functions
 
@@ -108,7 +116,7 @@ def warp_the_image(img_in, src, dst):
     return M, M_inv, img_warped
 
 # window-search
-def find_lane_pixels(binary_warped):
+def find_lane_pixels_window(binary_warped):
     # Take a histogram of the bottom half of the image
     histogram = np.sum(binary_warped[binary_warped.shape[0]//2:,:], axis=0)
     # Create an output image to draw on and visualize the result
@@ -193,13 +201,117 @@ def find_lane_pixels(binary_warped):
 
     return leftx, lefty, rightx, righty, dbg_lane_px_img
 
+def find_lane_pixels_poly(binary_warped, left_fit, right_fit):
+
+    # HYPERPARAMETER
+    # Choose the width of the margin around the previous polynomial to search
+    # The quiz grader expects 100 here, but feel free to tune on your own!
+    margin = 100
+
+    # Grab activated pixels
+    nonzero = binary_warped.nonzero()
+    nonzeroy = np.array(nonzero[0])
+    nonzerox = np.array(nonzero[1])
+
+    dbg_lane_px_img = np.dstack((binary_warped, binary_warped, binary_warped))
+    
+    ### TO-DO: Set the area of search based on activated x-values ###
+    ### within the +/- margin of our polynomial function ###
+    ### Hint: consider the window areas for the similarly named variables ###
+    ### in the previous quiz, but change the windows to our new search area ###
+    left_lane_inds = ((nonzerox > (left_fit[0]*nonzeroy**2 + left_fit[1]*nonzeroy + left_fit[2] - margin)) & (nonzerox < (left_fit[0]*nonzeroy**2 + left_fit[1]*nonzeroy + left_fit[2] + margin)))
+    right_lane_inds = ((nonzerox > (right_fit[0]*nonzeroy**2 + right_fit[1]*nonzeroy + right_fit[2] - margin)) & (nonzerox < (right_fit[0]*nonzeroy**2 + right_fit[1]*nonzeroy + right_fit[2] + margin)))
+    # Again, extract left and right line pixel positions
+    leftx = nonzerox[left_lane_inds]
+    lefty = nonzeroy[left_lane_inds] 
+    rightx = nonzerox[right_lane_inds]
+    righty = nonzeroy[right_lane_inds]
+
+    return leftx, lefty, rightx, righty, dbg_lane_px_img
+
 def fit_poly_pipeline(binary_warped):
     # Find our lane pixels first
-    left_x_pxs, left_y_pxs, right_x_pxs, right_y_pxs, dbg_lane_px_img = find_lane_pixels(binary_warped)
+    left_x_pxs, left_y_pxs, right_x_pxs, right_y_pxs, dbg_lane_px_img = find_lane_pixels_window(binary_warped)
 
     # Fit a second order polynomial to each using `np.polyfit`
     left_poly_pars = np.polyfit(left_y_pxs, left_x_pxs, 2)
     right_poly_pars = np.polyfit(right_y_pxs, right_x_pxs, 2)
+
+    # Debug - save the poly-pars
+    left_poly_pars_input.append(left_poly_pars)
+    right_poly_pars_input.append(right_poly_pars)
+
+    # First try, use search around polynom instead window-search
+    '''
+    left_x_pxs, left_y_pxs, right_x_pxs, right_y_pxs = find_lane_pixels_poly(binary_warped, left_poly_pars, right_poly_pars)
+    
+    # Fit a second order polynomial to each using `np.polyfit`
+    left_poly_pars = np.polyfit(left_y_pxs, left_x_pxs, 2)
+    right_poly_pars = np.polyfit(right_y_pxs, right_x_pxs, 2)
+    '''
+
+    # ensure that the lane with is in a certain range
+    # left approx 300 px
+    # right approx 1100 px
+    # lane_with_px = 1100 - 300 = 800 px
+    lane_with_px = 700
+    if((right_poly_pars[2] - left_poly_pars[2]) < lane_with_px):
+        # if smaller, take last value
+        left_poly_pars = left_poly_pars_input[-3]
+        right_poly_pars = right_poly_pars_input[-3]
+        # and update the list with the correction
+        left_poly_pars_input[-1] = left_poly_pars
+        right_poly_pars_input[-1] = right_poly_pars
+
+    # Generate x and y values for plotting
+    ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
+    try:
+        left_fitx = left_poly_pars[0]*ploty**2 + left_poly_pars[1]*ploty + left_poly_pars[2]
+        right_fitx = right_poly_pars[0]*ploty**2 + right_poly_pars[1]*ploty + right_poly_pars[2]
+    except TypeError:
+        # Avoids an error if `left` and `right_fit` are still none or incorrect
+        print('The function failed to fit a line!')
+        left_fitx = 1*ploty**2 + 1*ploty
+        right_fitx = 1*ploty**2 + 1*ploty
+
+    return left_fitx, right_fitx, ploty, dbg_lane_px_img
+
+def fit_poly_pipeline_poly(binary_warped):
+    # Find our lane pixels first
+    # left_x_pxs, left_y_pxs, right_x_pxs, right_y_pxs, dbg_lane_px_img = find_lane_pixels_window(binary_warped)
+
+    
+    # First try, use search around polynom instead window-search
+    left_x_pxs, left_y_pxs, right_x_pxs, right_y_pxs, dbg_lane_px_img = find_lane_pixels_poly(binary_warped, left_poly_pars_input[-1], right_poly_pars_input[-1])
+    
+    # Fit a second order polynomial to each using `np.polyfit`
+    left_poly_pars = np.polyfit(left_y_pxs, left_x_pxs, 2)
+    right_poly_pars = np.polyfit(right_y_pxs, right_x_pxs, 2)
+
+    # Debug - save the poly-pars
+    left_poly_pars_input.append(left_poly_pars)
+    right_poly_pars_input.append(right_poly_pars)
+    
+    # average
+    left_pars_average = np.average(left_poly_pars_input[-5:], axis=0)
+    right_pars_average = np.average(right_poly_pars_input[-5:], axis=0)
+
+    # assign the average for further cacluation
+    left_poly_pars = left_pars_average
+    right_poly_pars = right_pars_average
+
+    # ensure that the lane with is in a certain range
+    # left approx 300 px
+    # right approx 1100 px
+    # lane_with_px = 1100 - 300 = 800 px
+    lane_with_px = 700
+    if((right_poly_pars[2] - left_poly_pars[2]) < lane_with_px):
+        # if smaller, take last value
+        left_poly_pars = left_poly_pars_input[-3]
+        right_poly_pars = right_poly_pars_input[-3]
+        # and update the list with the correction
+        left_poly_pars_input[-1] = left_poly_pars
+        right_poly_pars_input[-1] = right_poly_pars
 
     # Generate x and y values for plotting
     ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
@@ -282,7 +394,8 @@ def process_image(img_in):
 
     M, M_inv, warped_binary = warp_the_image(combined_binary,src,dst)
 
-    left_fitx, right_fitx, ploty, dbg_lane_px_img = fit_poly_pipeline(warped_binary)
+    #left_fitx, right_fitx, ploty, dbg_lane_px_img = fit_poly_pipeline(warped_binary)
+    left_fitx, right_fitx, ploty, dbg_lane_px_img = fit_poly_pipeline_poly(warped_binary)
 
     window_img = np.zeros_like(undist_img)
 
@@ -304,7 +417,7 @@ def process_image(img_in):
     result = put_text(colored_undist, left_curverad,center_diff, side_pos)
 
     # tweak to produce the output for the writeup
-    # result = combined_binary
+    # result = warped_binary
 
     return result
 
@@ -312,8 +425,8 @@ def process_image(img_in):
 # Core-Computation for /test_images
 
 # Tst on images
-if(1):
-    images = glob.glob('./test_images/test*.jpg')
+if(0):
+    images = sorted(glob.glob('./test_images/test*.jpg'))
 
     for idx, fname in enumerate(images):
         img = cv2.imread(fname)
@@ -321,8 +434,23 @@ if(1):
         write_name = './test_images/tracked'+str(idx+1)+'.jpg'
         cv2.imwrite(write_name,img)
 
+    # plot poly pars
+    
+    # since the first element defines the start it is omitted in the fit's
+    left_poly_pars_input = np.concatenate(left_poly_pars_input[1:])
+    left_poly_pars_input = left_poly_pars_input.reshape(len(images),3)
+    left_poly_c_average = np.average(left_poly_pars_input[:,2])
+    right_poly_pars_input = np.concatenate(right_poly_pars_input[1:])
+    right_poly_pars_input = right_poly_pars_input.reshape(len(images),3)
+    plt.figure(1)
+    plt.plot(left_poly_pars_input[:,2],'r')
+    plt.plot(right_poly_pars_input[:,2],'b')
+    plt.show()
+
+
+
 # Test on videos
-if(0):
+if(1):
     if(1):
         Output_video = 'output1_tracked.mp4'
         Input_video = 'project_video.mp4'
